@@ -32,8 +32,7 @@ gcloud config set project {{project-id}}
 ### Project Number を取得し、環境変数に定義する
 
 ```bash
-PROJECT_NUMBER=`gcloud projects describe {{project-id}} --format='get(projectNumber)'`
-export PROJECT_NUMBER=$PROJECT_NUMBER
+export PROJECT_NUMBER=$( gcloud projects describe {{project-id}} --format='get(projectNumber)' )
 ```
 
 ### ハンズオンで利用する GCP の API を有効化する
@@ -644,8 +643,7 @@ Events:
 ### Gateway から外部 IP アドレスを取得
 
 ```bash
-VIP=`kubectl get gateway external-http -o=jsonpath="{.status.addresses[0].value}" --context {{config-cluster-name}} --namespace store`
-export VIP=${VIP}
+export VIP=$( kubectl get gateway external-http -o=jsonpath="{.status.addresses[0].value}" --context {{config-cluster-name}} --namespace store )
 ```
 
 ### ドメインのルートパスにトラフィックを送信して挙動を確認
