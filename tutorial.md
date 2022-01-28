@@ -13,9 +13,7 @@
 
 Google Kubernetes Engine (GKE) をマルチリージョン、マルチクラスタ構成で構築し、Kubernetes の Gateway API を利用して、Google Cloud Load Balancing (GCLB) でトラフィックを各クラスタに分散させる方法を学びます。
 
-# 1. 環境準備
-
-## GCP のプロジェクト ID を設定する
+## 1. 環境準備
 
 ### Google Cloud Platform（GCP）プロジェクトの選択
 
@@ -25,21 +23,20 @@ Google Kubernetes Engine (GKE) をマルチリージョン、マルチクラス�
 </walkthrough-project-setup>
 ```
 
-### 取得した GCP プロジェクト ID を環境変数に設定する
-
 ### gcloud から利用する GCP のデフォルトプロジェクトを設定する
 
 ```bash
 gcloud config set project {{project-id}}
 ```
 
-Project Number を取得し、環境変数に定義する
+### Project Number を取得し、環境変数に定義する
 
 ```bash
-export PROJECT_NUMBER=`gcloud projects describe {{project-id}} --format='get(projectNumber)'`
+PROJECT_NUMBER=`gcloud projects describe {{project-id}} --format='get(projectNumber)'`
+export PROJECT_NUMBER=$PROJECT_NUMBER
 ```
 
-## ハンズオンで利用する GCP の API を有効化する
+### ハンズオンで利用する GCP の API を有効化する
 
 ```bash
 gcloud services enable \
@@ -50,9 +47,9 @@ gcloud services enable \
   trafficdirector.googleapis.com
 ```
 
-# 2. GKE クラスタをデプロイする
+## 2. GKE クラスタをデプロイする
 
-## マルチクラスタ ゲートウェイのリソースをホストする構成クラスタ（後述）を東京リージョンに作成する
+### マルチクラスタ ゲートウェイのリソースをホストする構成クラスタ（後述）を東京リージョンに作成する
 
 ```bash
 gcloud container clusters create {{config-cluster-name}} \
@@ -64,7 +61,7 @@ gcloud container clusters create {{config-cluster-name}} \
     --num-nodes=1
 ```
 
-## 東京リージョンのクラスターを作成する
+### 東京リージョンのクラスターを作成する
 
 ```bash
 gcloud container clusters create {{cluster-name-1}} \
@@ -76,7 +73,7 @@ gcloud container clusters create {{cluster-name-1}} \
     --num-nodes=1
 ```
 
-## 大阪リージョンのクラスターを作成する
+### 大阪リージョンのクラスターを作成する
 
 時間短縮のため、Cloud Shell の別タブで並行して実行した方が良いです。
 
@@ -90,25 +87,33 @@ gcloud container clusters create {{cluster-name-2}} \
     --num-nodes=1
 ```
 
-## GKE クラスターにアクセスするための認証情報を取得する
+### GKE クラスターにアクセスするための認証情報を取得する
 
 ```bash
 gcloud container clusters get-credentials {{config-cluster-name}} --zone={{zone-1}}
+```
+```bash
 gcloud container clusters get-credentials {{cluster-name-1}} --zone={{zone-1}}
+````
+```bash
 gcloud container clusters get-credentials {{cluster-name-2}} --zone={{zone-2}}
 ```
 
-後で参照しやすいようクラスタのコンテキスト名を変更しておきます。
+### 後で参照しやすいようクラスタのコンテキスト名を変更しておきます。
 
 ```bash
 kubectl config rename-context gke_{{project-id}}_{{zone-1}}_{{config-cluster-name}} {{config-cluster-name}}
+```
+```bash
 kubectl config rename-context gke_{{project-id}}_{{zone-1}}_{{cluster-name-1}} {{cluster-name-1}}
+```
+```bash
 kubectl config rename-context gke_{{project-id}}_{{zone-1}}_{{cluster-name-2}} {{cluster-name-2}}
 ```
 
-# 3. GKE Hub に登録する
+## 3. GKE Hub に登録する
 
-## Hub に登録する
+### Hub に登録する
 
 これにより、各クラスタがプロジェクトのフリート（マルチクラスタ ゲートウェイのターゲットとなる GKE クラスタを含むリソース）にマッピングされます。
 
@@ -116,17 +121,19 @@ kubectl config rename-context gke_{{project-id}}_{{zone-1}}_{{cluster-name-2}} {
 gcloud container hub memberships register {{config-cluster-name}} \
     --gke-cluster {{zone-1}}/{{config-cluster-name}} \
     --enable-workload-identity \
-
+```
+```bash
 gcloud container hub memberships register {{cluster-name-1}} \
     --gke-cluster {{zone-1}}/{{cluster-name-1}} \
     --enable-workload-identity \
-
+```
+```bash
 gcloud container hub memberships register {{cluster-name-2}} \
     --gke-cluster {{zone-2}}/{{cluster-name-2}} \
     --enable-workload-identity \
 ```
 
-## クラスタが GKE Hub に正常に登録されたことを確認
+### クラスタが GKE Hub に正常に登録されたことを確認
 
 ```bash
 gcloud container hub memberships list
@@ -140,16 +147,17 @@ NAME                        EXTERNAL_ID
 {{cluster-name-2}}  f3727836-9cb0-4ffa-b0c8-d51001742f19
 ```
 
-# 4. マルチクラスタ Service を有効にする
+## 4. マルチクラスタ Service を有効にする
 
-登録済みクラスタのフリートでマルチクラスタ サービスを有効にします。  
-これにより、Hub に登録されているのクラスタの MCS コントローラが有効になり、Service のリッスンとエクスポートを開始できます。
+### 登録済みクラスタのフリートでマルチクラスタ サービスを有効化
+
+Hub に登録されているのクラスタの MCS コントローラが有効になり、Service のリッスンとエクスポートを開始できます。
 
 ```bash
 gcloud container hub multi-cluster-services enable
 ```
 
-MCS に必要な IAM 権限を付与
+### MCS に必要な IAM 権限を付与
 
 ```bash
 gcloud projects add-iam-policy-binding {{project-id}} \
@@ -157,7 +165,7 @@ gcloud projects add-iam-policy-binding {{project-id}} \
     --role "roles/compute.networkViewer" \
 ```
 
-## 登録済みクラスタで MCS が有効になっていることを確認する
+### 登録済みクラスタで MCS が有効になっていることを確認する
 
 登録された 2 つのクラスタのメンバーシップが表示されます。すべてのクラスタが表示されるまでに数分かかることがあります。
 
@@ -165,7 +173,7 @@ gcloud projects add-iam-policy-binding {{project-id}} \
 gcloud container hub multi-cluster-services describe
 ```
 
-# 5. Gateway API CRD をインストールする
+## 5. Gateway API CRD をインストールする
 
 GKE でゲートウェイ リソースを使用する前に、クラスタに Gateway API カスタム リソース定義（CRD）をインストールする必要があります。
 
@@ -187,38 +195,41 @@ customresourcedefinition.apiextensions.k8s.io/udproutes.networking.x-k8s.io crea
 
 次のステップでコントローラを有効にすると、クラスタにマルチクラスタ GatewayClass がインストールされ、マルチクラスタ ゲートウェイのデプロイが可能になります。
 
-# 6. マルチクラスタ ゲートウェイ コントローラを有効にする
+## 6. マルチクラスタ ゲートウェイ コントローラを有効にする
 
 GKE Gateway コントローラは、Google が Cloud Load Balancing に実装した Gateway API です。  
 Gateway API リソースの Kubernetes API を監視し、Cloud Load Balancing リソースを調整して、Gateway リソースで指定されたネットワーク動作を実装します。
 
 ![architecture](https://cloud.google.com/kubernetes-engine/images/gateway-controller-architecture.svg)
 
-マルチクラスタ GKE Gateway コントローラを有効にして、構成クラスタを指定します。構成クラスタは後からいつでも更新できます。  
-ここでは、マルチクラスタ ゲートウェイのリソースをホストする構成クラスタとして {{config-cluster-name}} を指定しています。
+### マルチクラスタ GKE Gateway コントローラを有効にして、構成クラスタを指定
+
+マルチクラスタ ゲートウェイのリソースをホストする構成クラスタとして `{{config-cluster-name}}` を指定しています。
 
 ```bash
 gcloud container hub ingress enable \
-    --config-membership=/projects/{{project-id}}/locations/global/memberships/{{config-cluster-name}} \
+    --config-membership=/projects/{{project-id}}/locations/global/memberships/{{config-cluster-name}}
 ```
 
-## 登録済みクラスタでグローバル GKE ゲートウェイ コントローラが有効になっていることを確認する
+### 登録済みクラスタでグローバル GKE ゲートウェイ コントローラが有効になっていることを確認する
 
 ```bash
 gcloud container hub ingress describe
 ```
 
-## Gateway コントローラに必要な IAM 権限を付与する
+### Gateway コントローラに必要な IAM 権限を付与する
 
 ```bash
 gcloud projects add-iam-policy-binding {{prject-id}} \
     --member "serviceAccount:service-${PROJECT_NUMBER}@gcp-sa-multiclusteringress.iam.gserviceaccount.com" \
-    --role "roles/container.admin" \
+    --role "roles/container.admin"
 ```
 
 `ingress` Hub 機能が有効になると、構成クラスタでマルチクラスタ GatewayClass が使用可能になります。  
 GatewayClasses のリストで、外部マルチクラスタ ゲートウェイには `gke-l7-gxlb-mc` が、内部マルチクラスタ ゲートウェイには `gke-l7-rilb-mc` が表示されます。  
 これで、これらの GatewayClass を使用してマルチクラスタ ゲートウェイを作成できるようになります。
+
+### GatewayClass の確認
 
 ```bash
 kubectl get gatewayclasses --context={{config-cluster-name}}
@@ -234,7 +245,7 @@ gke-l7-rilb      networking.gke.io/gateway
 gke-l7-rilb-mc   networking.gke.io/gateway
 ```
 
-# 7. デモアプリケーションをデプロイする
+## 7. デモアプリケーションをデプロイする
 
 ここでは、2 つの GKE クラスタのアプリケーション間で外部トラフィックを分散させる外部マルチクラスタ ゲートウェイを作成します。
 (下図はイメージです)
@@ -242,18 +253,20 @@ gke-l7-rilb-mc   networking.gke.io/gateway
 
 
 以下の手順で次の操作をします。
-1. {{cluster-name-1}} クラスタと {{cluster-name-2}} クラスタにサンプル store アプリケーションをデプロイします。
+1. `{{cluster-name-1}}` クラスタと `{{cluster-name-2}}` クラスタにサンプル store アプリケーションをデプロイします。
 2. 各クラスタに ServiceExport リソースを構成して、Service をフリートにエクスポートします。
-3. `gke-l7-gxlb-mc` Gateway と HTTPRoute を構成クラスタ {{cluster-name-1}} にデプロイします。
+3. `gke-l7-gxlb-mc` Gateway と HTTPRoute を構成クラスタ `{{cluster-name-1}}` にデプロイします。
 
 アプリケーションと Gateway リソースがデプロイされると、パスベースのルーティングを使用して 2 つの GKE クラスタ間のトラフィックを制御できます。
 
-## 東京と大阪、両方のクラスタにデモアプリケーションをデプロイ
+### 東京と大阪、両方のクラスタにデモアプリケーションをデプロイ
 
 両方のクラスタに、store Deployment と Namespace を作成します。
 
 ```bash
 kubectl apply --context {{cluster-name-1}} -f https://raw.githubusercontent.com/GoogleCloudPlatform/gke-networking-recipes/master/gateway/gke-gateway-controller/multi-cluster-gateway/store.yaml
+```
+```bash
 kubectl apply --context {{cluster-name-2}} -f https://raw.githubusercontent.com/GoogleCloudPlatform/gke-networking-recipes/master/gateway/gke-gateway-controller/multi-cluster-gateway/store.yaml
 ```
 
@@ -261,14 +274,14 @@ RUNNING 状態になったかどうかを確認します。
 
 ```bash
 kubectl get pod --context {{cluster-name-1}}
+```
+```bash
 kubectl get pod --context {{cluster-name-2}}
 ```
 
-# 8. マルチクラスタ サービスについて（説明）
+## 8. マルチクラスタ サービスについて（説明）
 
 マルチクラスタ ゲートウェイ コントローラは、MCS API リソースを使用して、複数のクラスタにまたがってアドレス指定可能な Service にグループ化します。
-
-## マルチクラスタ サービス API の定義
 
 ### ServiceExport 
 Kubernetes Service にマッピングされ、フリートに登録されているすべてのクラスタに、その Service のエンドポイントをエクスポートします。  
@@ -281,8 +294,8 @@ ServiceExport がフリートに存在する場合は、対応する ServiceImpo
 
 ### ServiceExport の例
 
-store Service は {{cluster-name-1}} に存在し、そのクラスタ内の Pod のグループを選択します。  
-クラスタに ServiceExport が作成され、{{cluster-name-1}} 内の Pod にフリートの他のクラスタからアクセスできるようになります。  
+store Service は `{{cluster-name-1}}` に存在し、そのクラスタ内の Pod のグループを選択します。  
+クラスタに ServiceExport が作成され、`{{cluster-name-1}}` 内の Pod にフリートの他のクラスタからアクセスできるようになります。  
 ServiceExport は、ServiceExport リソースと同じ name および namespace を持つ Service にマッピングされ、公開されます。
 
 ```yaml
@@ -338,11 +351,11 @@ spec:
 
 ![Multi Cluster Gateway](https://cloud.google.com/kubernetes-engine/images/multi-cluster-service-example2.svg)
 
-# 9. Service の Export
+## 9. Service の Export
 
-## Service と ServiceExport のデプロイ
+### Service と ServiceExport のデプロイ
 
-{{cluster-name-1}} に適用する manifest を `store-tokyo-service.yaml` という名前のファイルに保存します。
+`{{cluster-name-1}}` に適用する manifest を `store-tokyo-service.yaml` という名前のファイルに保存します。
 
 ```bash
 cat <<EOL > store-tokyo-service.yaml
@@ -390,7 +403,7 @@ EOL
 kubectl apply -f store-tokyo-service.yaml --context {{cluster-name-1}}
 ```
 
-{{cluster-name-2}} に適用する manifest を `store-osaka-service.yaml` という名前のファイルに保存します。
+`{{cluster-name-2}}` に適用する manifest を `store-osaka-service.yaml` という名前のファイルに保存します。
 
 ```bash
 cat <<EOL > store-osaka-service.yaml
@@ -438,12 +451,14 @@ EOL
 kubectl apply -f store-osaka-service.yaml --context {{context-name-2}} --namespace store
 ```
 
-## ServiceExport の確認
+### ServiceExport の確認
 
 クラスタに正しい ServiceExport が作成されていることを確認します。
 
 ```bash
 kubectl get serviceexports --context {{cluster-name-1}} --namespace store
+```
+```bash
 kubectl get serviceexports --context {{cluster-name-2}} --namespace store
 ```
 
@@ -465,6 +480,8 @@ store-osaka-1   2m25s
 
 ```bash
 kubectl get serviceimports --context {{cluster-name-1}} --namespace store
+```
+```bash
 kubectl get serviceimports --context {{cluster-name-2}} --namespace store
 ```
 
@@ -486,14 +503,14 @@ store-tokyo-1   ClusterSetIP   ["10.72.28.68"]    4h32m
 
 これは、3 つの Service がすべてフリートの両方のクラスタからアクセスできることを表しています。
 
-# 10. Gateway と HTTPRoute をデプロイする
+## 10. Gateway と HTTPRoute をデプロイする
 
-アプリケーションがデプロイされたら、gke-l7-gxlb-mc GatewayClass を使用してゲートウェイを構成できます。  
+アプリケーションがデプロイされたら、`gke-l7-gxlb-mc` GatewayClass を使用してゲートウェイを構成できます。  
 このゲートウェイは、ターゲット クラスタ間でトラフィックを分散する外部 HTTP(S) ロードバランサを作成します。
 
-## Gateway manifest のデプロイ
+### Gateway manifest のデプロイ
 
-{{config-cluster-name}} に適用する manifest を `external-http-gateway.yaml` という名前のファイルに保存します。
+`{{config-cluster-name}}` に適用する manifest を `external-http-gateway.yaml` という名前のファイルに保存します。
 
 ```bash
 cat <<EOL > external-http-gateway.yaml
@@ -521,9 +538,9 @@ EOL
 kubectl apply -f external-http-gateway.yaml --context {{config-cluster-name}} --namespace store
 ```
 
-## HTTPRoute manifest のデプロイ
+### HTTPRoute manifest のデプロイ
 
-{{config-cluster-name}} に適用する manifest を `public-store-route.yaml` という名前のファイルに保存します。
+`{{config-cluster-name}}` に適用する manifest を `public-store-route.yaml` という名前のファイルに保存します。
 
 ```bash
 cat <<EOL > public-store-route.yaml
@@ -583,9 +600,9 @@ kubectl apply -f public-store-route.yaml --context {{config-cluster-name}} --nam
 
 特定のクラスタのすべての Pod が正常でない（または存在しない）場合、`store` Service へのトラフィックは、実際に `store` Pod を使用しているクラスタにのみ送信されます。
 
-# 11. デプロイの検証
+## 11. デプロイの検証
 
-## Gateway と HTTPRoute が正常にデプロイされたことを確認
+### Gateway と HTTPRoute が正常にデプロイされたことを確認
 
 ```bash
 kubectl describe gateway external-http --context {{config-cluster-name}} --namespace store
@@ -624,13 +641,14 @@ Events:
   Normal   SYNC    59s (x9 over 29m)       global-gke-gateway-ctlr  SYNC on store/external-http was a success
 ```
 
-## Gateway から外部 IP アドレスを取得
+### Gateway から外部 IP アドレスを取得
 
 ```bash
-export VIP=`kubectl get gateway external-http -o=jsonpath="{.status.addresses[0].value}" --context {{config-cluster-name}} --namespace store`
+VIP=`kubectl get gateway external-http -o=jsonpath="{.status.addresses[0].value}" --context {{config-cluster-name}} --namespace store`
+export VIP=${VIP}
 ```
 
-## ドメインのルートパスにトラフィックを送信して挙動を確認
+### ドメインのルートパスにトラフィックを送信して挙動を確認
 
 ロードバランサは最も近いリージョンにトラフィックを送信し、他のリージョンからのレスポンスが表示されない可能性があります。
 
@@ -653,7 +671,7 @@ curl -H "host: store.example.com" http://${VIP}
 }
 ```
 
-## トラフィックを `/tokyo` パスに送信する
+### トラフィックを `/tokyo` パスに送信する
 
 ```bash
 curl -H "host: store.example.com" http://${VIP}/tokyo
@@ -674,7 +692,7 @@ curl -H "host: store.example.com" http://${VIP}/tokyo
 }
 ```
 
-## トラフィックを `/osaka` パスに送信する
+### トラフィックを `/osaka` パスに送信する
 
 ```bash
 curl -H "host: store.example.com" http://${VIP}/osaka
@@ -694,3 +712,10 @@ curl -H "host: store.example.com" http://${VIP}/osaka
 "timestamp": "2022-01-27T17:39:15",
 }
 ```
+
+## Congraturations!
+
+<walkthrough-conclusion-trophy></walkthrough-conclusion-trophy>
+
+これにてマルチゲートウェイ体験するハンズオンは完了です！！  
+TODO: cleanup
