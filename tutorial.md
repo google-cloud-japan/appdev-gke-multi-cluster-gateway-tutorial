@@ -352,6 +352,14 @@ spec:
 
 ## 9. Service の Export
 
+### store namespace の作成
+
+`{{config-cluster-name}}` に store namespace を作成します。
+
+```bash
+kubectl create ns store --context {{config-cluster-name}}
+```
+
 ### Service と ServiceExport のデプロイ
 
 `{{cluster-name-1}}` に適用する manifest を `store-tokyo-service.yaml` という名前のファイルに保存します。
@@ -480,6 +488,9 @@ store-osaka-1   2m25s
 数分後、付属の ServiceImports が、フリート内のすべてのクラスタにわたってマルチクラスタ Service コントローラによって自動的に作成されたことを確認します。
 
 ```bash
+kubectl get serviceimports --context {{config-cluster-name}} --namespace store
+```
+```bash
 kubectl get serviceimports --context {{cluster-name-1}} --namespace store
 ```
 ```bash
@@ -489,13 +500,19 @@ kubectl get serviceimports --context {{cluster-name-2}} --namespace store
 以下のように出力されます。
 
 ```text
+# {{config-cluster-name}}
+NAME            TYPE           IP                 AGE
+store           ClusterSetIP   ["10.68.13.175"]   68s
+store-osaka-1   ClusterSetIP   ["10.68.12.211"]   68s
+store-tokyo-1   ClusterSetIP   ["10.68.11.19"]    69s
+
 # {{cluster-name-1}}
 NAME            TYPE           IP                  AGE
 store           ClusterSetIP   ["10.112.31.15"]    6m54s
 store-osaka-1   ClusterSetIP   ["10.112.26.235"]   5m49s
 store-tokyo-1   ClusterSetIP   ["10.112.16.112"]   6m54s
 
-# gke-east-1
+# {{cluster-name-2}}
 NAME            TYPE           IP                  AGE
 store           ClusterSetIP   ["10.72.28.226"]   5d10h
 store-osaka-1   ClusterSetIP   ["10.72.19.177"]   5d10h
@@ -510,12 +527,6 @@ store-tokyo-1   ClusterSetIP   ["10.72.28.68"]    4h32m
 このゲートウェイは、ターゲット クラスタ間でトラフィックを分散する外部 HTTP(S) ロードバランサを作成します。
 
 ### Gateway manifest のデプロイ
-
-`{{config-cluster-name}}` に store namespace を作成します。
-
-```bash
-kubectl create ns store --context {{config-cluster-name}}
-```
 
 `{{config-cluster-name}}` に適用する manifest を `external-http-gateway.yaml` という名前のファイルに保存します。
 
@@ -542,7 +553,7 @@ EOL
 デプロイします。
 
 ```bash
-kubectl apply -f external-http-gateway.yaml --context {{config-cluster-name}}
+kubectl apply -f external-http-gateway.yaml --context {{config-cluster-name}} --namespace store
 ```
 
 ### HTTPRoute manifest のデプロイ
@@ -634,7 +645,7 @@ Spec:
 Status:
   Addresses:
     Type:   IPAddress
-    Value:  34.120.172.213
+    Value:  34.107.239.97
   Conditions:
     Last Transition Time:  1970-01-01T00:00:00Z
     Message:               Waiting for controller
@@ -642,10 +653,10 @@ Status:
     Status:                False
     Type:                  Scheduled
 Events:
-  Type     Reason  Age                     From                     Message
-  ----     ------  ----                    ----                     -------
-  Normal   UPDATE  29m (x2 over 29m)       global-gke-gateway-ctlr  store/external-http
-  Normal   SYNC    59s (x9 over 29m)       global-gke-gateway-ctlr  SYNC on store/external-http was a success
+  Type    Reason  Age                  From                   Message
+  ----    ------  ----                 ----                   -------
+  Normal  SYNC    37s (x29 over 110m)  mc-gateway-controller  SYNC on store/external-http was a success
+  Normal  SYNC    28s                  mc-gateway-controller  store/external-http
 ```
 
 ### Gateway から外部 IP アドレスを取得
@@ -656,24 +667,26 @@ export VIP=$( kubectl get gateway external-http -o=jsonpath="{.status.addresses[
 
 ### ドメインのルートパスにトラフィックを送信して挙動を確認
 
-ロードバランサは最も近いリージョンにトラフィックを送信し、他のリージョンからのレスポンスが表示されない可能性があります。
+ロードバランサは最も近いリージョンにトラフィックを送信し、他のリージョンからのレスポンスが表示される可能性があります。  
+アクセス可能になるまで多少時間がかかります。
+
 
 ```bash
 curl -H "host: store.example.com" http://${VIP}
 ```
 
-出力から、リクエストが `{{cluster-name-1}}` クラスタから Pod によって処理されたことを確認できます。
+東京からアクセスした場合、リクエストが `{{cluster-name-1}}` クラスタから Pod によって処理されたことを出力から確認できます。
 
 ```text
 {
-"cluster_name": "{{cluster-name-1}}", 
-"zone": "{{zone-1}}", 
-"host_header": "store.example.com",
-"node_name": "gke-{{cluster-name-1}}-default-pool-65059399-2f41.c.{{project-id}}.internal",
-"pod_name": "store-5f5b954888-d25m5",
-"pod_name_emoji": "🍾",
-"project_id": "{{project-id}}",
-"timestamp": "2022-01-27T17:39:15",
+  "cluster_name": "{{cluster-name-1}}",
+  "host_header": "store.example.com",
+  "node_name": "gke-{{cluster-name-1}}-default-pool-62e03418-7xmp.{{zone-1}}.c.{{project-id}}.internal",
+  "pod_name": "store-5f5b954888-864hp",
+  "pod_name_emoji": "🈚",
+  "project_id": "{{project-id}}",
+  "timestamp": "2022-02-01T05:55:45",
+  "zone": "{{zone-1}}"
 }
 ```
 
@@ -683,18 +696,18 @@ curl -H "host: store.example.com" http://${VIP}
 curl -H "host: store.example.com" http://${VIP}/tokyo
 ```
 
-出力から、リクエストが `{{cluster-name-1}}` クラスタから Pod によって処理されたことを確認できます。
+リクエストが `{{cluster-name-1}}` クラスタから Pod によって処理されたことを出力から確認できます。
 
 ```text
 {
-"cluster_name": "{{cluster-name-1}}", 
-"zone": "{{zone-1}}", 
-"host_header": "store.example.com",
-"node_name": "gke-{{cluster-name-1}}-default-pool-65059399-2f41.c.{{project-id}}.internal",
-"pod_name": "store-5f5b954888-d25m5",
-"pod_name_emoji": "🍾",
-"project_id": "{{project-id}}",
-"timestamp": "2022-01-27T17:39:15",
+  "cluster_name": "{{cluster-name-1}}",
+  "host_header": "store.example.com",
+  "node_name": "gke-{{cluster-name-1}}-default-pool-62e03418-7xmp.{{zone-1}}.c.{{project-id}}.internal",
+  "pod_name": "store-5f5b954888-864hp",
+  "pod_name_emoji": "🈚",
+  "project_id": "{{project-id}}",
+  "timestamp": "2022-02-01T05:55:45",
+  "zone": "{{zone-1}}"
 }
 ```
 
@@ -708,14 +721,14 @@ curl -H "host: store.example.com" http://${VIP}/osaka
 
 ```text
 {
-"cluster_name": "{{cluster-name-2}}", 
-"zone": "{{zone-2}}", 
-"host_header": "store.example.com",
-"node_name": "gke-{{cluster-name-2}}-default-pool-65059399-2f41.c.{{project-id}}.internal",
-"pod_name": "store-5f5b954888-d25m5",
-"pod_name_emoji": "🍾",
-"project_id": "{{project-id}}",
-"timestamp": "2022-01-27T17:39:15",
+  "cluster_name": "{{cluster-name-2}}",
+  "host_header": "store.example.com",
+  "node_name": "gke-{{cluster-name-2}}-default-pool-91d0188e-n5rd.{{zone-2}}.c.{{project-id}}.internal",
+  "pod_name": "store-5f5b954888-w6lnr",
+  "pod_name_emoji": "🚴🏻♀️",
+  "project_id": "{{project-id}}",
+  "timestamp": "2022-02-01T05:55:54",
+  "zone": "{{zone-2}}"
 }
 ```
 
@@ -724,4 +737,41 @@ curl -H "host: store.example.com" http://${VIP}/osaka
 <walkthrough-conclusion-trophy></walkthrough-conclusion-trophy>
 
 これにてマルチゲートウェイ体験するハンズオンは完了です！！  
-TODO: cleanup
+
+**環境が不要でクリーンアップしたい方は、次ステップを実施してください。**
+
+## クリーンアップ
+
+### GKE Hub から登録解除する
+
+構成クラスタの解除
+```bash
+gcloud container hub memberships unregister {{config-cluster-name}}         
+```
+
+東京リージョンクラスタの解除
+```bash
+gcloud container hub memberships unregister {{cluster-name-1}}         
+```
+
+大阪リージョンクラスタの解除
+```bash
+gcloud container hub memberships unregister {{cluster-name-2}}         
+```
+
+### クラスタの削除
+
+構成クラスタの削除
+```bash
+gcloud container clusters delete {{config-cluster-name}}         
+```
+
+東京リージョンクラスタの削除
+```bash
+gcloud container clusters delete {{cluster-name-1}}         
+```
+
+大阪リージョンクラスタの削除
+```bash
+gcloud container clusters delete {{cluster-name-2}}         
+```
