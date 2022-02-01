@@ -57,10 +57,11 @@ gcloud container clusters create {{config-cluster-name}} \
     --workload-pool={{project-id}}.svc.id.goog \
     --release-channel stable \
     --machine-type {{instance-type}} \
-    --num-nodes=1
 ```
 
 ### 東京リージョンのクラスターを作成する
+
+(時間短縮のため、Cloud Shell の別タブで並行して実行した方が良いです)
 
 ```bash
 gcloud container clusters create {{cluster-name-1}} \
@@ -69,12 +70,11 @@ gcloud container clusters create {{cluster-name-1}} \
     --workload-pool={{project-id}}.svc.id.goog \
     --release-channel stable \
     --machine-type {{instance-type}} \
-    --num-nodes=1
 ```
 
 ### 大阪リージョンのクラスターを作成する
 
-時間短縮のため、Cloud Shell の別タブで並行して実行した方が良いです。
+(時間短縮のため、Cloud Shell の別タブで並行して実行した方が良いです)
 
 ```bash
 gcloud container clusters create {{cluster-name-2}} \
@@ -83,7 +83,6 @@ gcloud container clusters create {{cluster-name-2}} \
     --workload-pool={{project-id}}.svc.id.goog \
     --release-channel stable \
     --machine-type {{instance-type}} \
-    --num-nodes=1
 ```
 
 ### GKE クラスターにアクセスするための認証情報を取得する
@@ -107,7 +106,7 @@ kubectl config rename-context gke_{{project-id}}_{{zone-1}}_{{config-cluster-nam
 kubectl config rename-context gke_{{project-id}}_{{zone-1}}_{{cluster-name-1}} {{cluster-name-1}}
 ```
 ```bash
-kubectl config rename-context gke_{{project-id}}_{{zone-1}}_{{cluster-name-2}} {{cluster-name-2}}
+kubectl config rename-context gke_{{project-id}}_{{zone-2}}_{{cluster-name-2}} {{cluster-name-2}}
 ```
 
 ## 3. GKE Hub に登録する
@@ -119,17 +118,17 @@ kubectl config rename-context gke_{{project-id}}_{{zone-1}}_{{cluster-name-2}} {
 ```bash
 gcloud container hub memberships register {{config-cluster-name}} \
     --gke-cluster {{zone-1}}/{{config-cluster-name}} \
-    --enable-workload-identity \
+    --enable-workload-identity
 ```
 ```bash
 gcloud container hub memberships register {{cluster-name-1}} \
     --gke-cluster {{zone-1}}/{{cluster-name-1}} \
-    --enable-workload-identity \
+    --enable-workload-identity
 ```
 ```bash
 gcloud container hub memberships register {{cluster-name-2}} \
     --gke-cluster {{zone-2}}/{{cluster-name-2}} \
-    --enable-workload-identity \
+    --enable-workload-identity
 ```
 
 ### クラスタが GKE Hub に正常に登録されたことを確認
@@ -138,12 +137,13 @@ gcloud container hub memberships register {{cluster-name-2}} \
 gcloud container hub memberships list
 ```
 
-以下のように出力されれば問題ありません
+以下のような情報が出力されれば問題ありません
 
 ```text
-NAME                        EXTERNAL_ID
-{{cluster-name-1}}  657e835d-3b6b-4bc5-9283-99d2da8c2e1b
-{{cluster-name-2}}  f3727836-9cb0-4ffa-b0c8-d51001742f19
+NAME                  EXTERNAL_ID
+{{config-cluster-name}}  97892bcd-54f2-45ec-b46c-b97cdd8f0774
+{{cluster-name-1}}           e9db39b9-a1d0-4a59-99cd-2bb8fe51f38d
+{{cluster-name-2}}           b10ec208-4aa8-4aec-970f-20300bdb5095
 ```
 
 ## 4. マルチクラスタ Service を有効にする
@@ -161,12 +161,12 @@ gcloud container hub multi-cluster-services enable
 ```bash
 gcloud projects add-iam-policy-binding {{project-id}} \
     --member "serviceAccount:{{project-id}}.svc.id.goog[gke-mcs/gke-mcs-importer]" \
-    --role "roles/compute.networkViewer" \
+    --role "roles/compute.networkViewer"
 ```
 
 ### 登録済みクラスタで MCS が有効になっていることを確認する
 
-登録された 2 つのクラスタのメンバーシップが表示されます。すべてのクラスタが表示されるまでに数分かかることがあります。
+登録された 3 つのクラスタのメンバーシップが表示されます。すべてのクラスタが表示されるまでに数分かかることがあります。
 
 ```bash
 gcloud container hub multi-cluster-services describe
@@ -177,7 +177,7 @@ gcloud container hub multi-cluster-services describe
 GKE でゲートウェイ リソースを使用する前に、クラスタに Gateway API カスタム リソース定義（CRD）をインストールする必要があります。
 
 ```bash
-kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd?ref=v0.3.0" | kubectl apply -f --cluster {{config-cluster-name}} -
+kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd?ref=v0.3.0" | kubectl apply --context {{config-cluster-name}} -f -
 ```
 
 次の CRD がインストールされます。
@@ -219,7 +219,7 @@ gcloud container hub ingress describe
 ### Gateway コントローラに必要な IAM 権限を付与する
 
 ```bash
-gcloud projects add-iam-policy-binding {{prject-id}} \
+gcloud projects add-iam-policy-binding {{project-id}} \
     --member "serviceAccount:service-${PROJECT_NUMBER}@gcp-sa-multiclusteringress.iam.gserviceaccount.com" \
     --role "roles/container.admin"
 ```
@@ -272,10 +272,10 @@ kubectl apply --context {{cluster-name-2}} -f https://raw.githubusercontent.com/
 RUNNING 状態になったかどうかを確認します。
 
 ```bash
-kubectl get pod --context {{cluster-name-1}}
+kubectl get pod --context {{cluster-name-1}} -n store
 ```
 ```bash
-kubectl get pod --context {{cluster-name-2}}
+kubectl get pod --context {{cluster-name-2}} -n store
 ```
 
 ## 8. マルチクラスタ サービスについて（説明）
@@ -355,8 +355,9 @@ spec:
 ### Service と ServiceExport のデプロイ
 
 `{{cluster-name-1}}` に適用する manifest を `store-tokyo-service.yaml` という名前のファイルに保存します。
+以下コピーして実行してください。
 
-```bash
+```text
 cat <<EOL > store-tokyo-service.yaml
 apiVersion: v1
 kind: Service
@@ -403,6 +404,7 @@ kubectl apply -f store-tokyo-service.yaml --context {{cluster-name-1}}
 ```
 
 `{{cluster-name-2}}` に適用する manifest を `store-osaka-service.yaml` という名前のファイルに保存します。
+以下コピーして実行してください。
 
 ```bash
 cat <<EOL > store-osaka-service.yaml
@@ -447,7 +449,7 @@ EOL
 デプロイします。
 
 ```bash
-kubectl apply -f store-osaka-service.yaml --context {{context-name-2}} --namespace store
+kubectl apply -f store-osaka-service.yaml --context {{cluster-name-2}}
 ```
 
 ### ServiceExport の確認
@@ -509,9 +511,15 @@ store-tokyo-1   ClusterSetIP   ["10.72.28.68"]    4h32m
 
 ### Gateway manifest のデプロイ
 
-`{{config-cluster-name}}` に適用する manifest を `external-http-gateway.yaml` という名前のファイルに保存します。
+`{{config-cluster-name}}` に store namespace を作成します。
 
 ```bash
+kubectl create ns store --context {{config-cluster-name}}
+```
+
+`{{config-cluster-name}}` に適用する manifest を `external-http-gateway.yaml` という名前のファイルに保存します。
+
+```text
 cat <<EOL > external-http-gateway.yaml
 kind: Gateway
 apiVersion: networking.x-k8s.io/v1alpha1
@@ -534,14 +542,14 @@ EOL
 デプロイします。
 
 ```bash
-kubectl apply -f external-http-gateway.yaml --context {{config-cluster-name}} --namespace store
+kubectl apply -f external-http-gateway.yaml --context {{config-cluster-name}}
 ```
 
 ### HTTPRoute manifest のデプロイ
 
 `{{config-cluster-name}}` に適用する manifest を `public-store-route.yaml` という名前のファイルに保存します。
 
-```bash
+```text
 cat <<EOL > public-store-route.yaml
 kind: HTTPRoute
 apiVersion: networking.x-k8s.io/v1alpha1
