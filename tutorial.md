@@ -744,34 +744,38 @@ curl -H "host: store.example.com" http://${VIP}/osaka
 
 ### GKE Hub から登録解除する
 
+(時間がかかるため、複数タブで並列実行しても良いです)
+
 構成クラスタの解除
 ```bash
-gcloud container hub memberships unregister {{config-cluster-name}}         
+gcloud container hub memberships unregister {{config-cluster-name}} --gke-cluster {{zone-1}}/{{config-cluster-name}}
 ```
 
 東京リージョンクラスタの解除
 ```bash
-gcloud container hub memberships unregister {{cluster-name-1}}         
+gcloud container hub memberships unregister {{cluster-name-1}}--gke-cluster {{zone-1}}/{{cluster-name-1}}
 ```
 
 大阪リージョンクラスタの解除
 ```bash
-gcloud container hub memberships unregister {{cluster-name-2}}         
+gcloud container hub memberships unregister {{cluster-name-2}} --gke-cluster {{zone-2}}/{{cluster-name-2}}
 ```
 
 ### クラスタの削除
 
+(時間がかかるため、複数タブで並列実行しても良いです)
+
 構成クラスタの削除
 ```bash
-gcloud container clusters delete {{config-cluster-name}}         
+gcloud container clusters delete {{config-cluster-name}} --zone {{zone-1}}
 ```
 
 東京リージョンクラスタの削除
 ```bash
-gcloud container clusters delete {{cluster-name-1}}         
+gcloud container clusters delete {{cluster-name-1}} --zone {{zone-1}}
 ```
 
 大阪リージョンクラスタの削除
 ```bash
-gcloud container clusters delete {{cluster-name-2}}         
+gcloud container clusters delete {{cluster-name-2}} --zone {{zone-2}}
 ```
