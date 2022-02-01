@@ -58,7 +58,7 @@ gcloud container clusters create {{config-cluster-name}} \
     --enable-ip-alias \
     --workload-pool={{project-id}}.svc.id.goog \
     --release-channel stable \
-    --machine-type {{instance-type}} \
+    --machine-type {{instance-type}}
 ```
 
 ### 東京リージョンのクラスターを作成する
@@ -71,7 +71,7 @@ gcloud container clusters create {{cluster-name-1}} \
     --enable-ip-alias \
     --workload-pool={{project-id}}.svc.id.goog \
     --release-channel stable \
-    --machine-type {{instance-type}} \
+    --machine-type {{instance-type}}
 ```
 
 ### 大阪リージョンのクラスターを作成する
@@ -84,7 +84,7 @@ gcloud container clusters create {{cluster-name-2}} \
     --enable-ip-alias \
     --workload-pool={{project-id}}.svc.id.goog \
     --release-channel stable \
-    --machine-type {{instance-type}} \
+    --machine-type {{instance-type}}
 ```
 
 ### GKE クラスターにアクセスするための認証情報を取得する
@@ -416,7 +416,7 @@ kubectl apply -f store-tokyo-service.yaml --context {{cluster-name-1}}
 `{{cluster-name-2}}` に適用する manifest を `store-osaka-service.yaml` という名前のファイルに保存します。
 以下コピーして実行してください。
 
-```bash
+```text
 cat <<EOL > store-osaka-service.yaml
 apiVersion: v1
 kind: Service
@@ -521,7 +521,7 @@ store-osaka-1   ClusterSetIP   ["10.72.19.177"]   5d10h
 store-tokyo-1   ClusterSetIP   ["10.72.28.68"]    4h32m
 ```
 
-これは、3 つの Service がすべてフリートの両方のクラスタからアクセスできることを表しています。
+これは、3 つの Service がすべてフリートの両方（Tokyo / Osaka）のクラスタからアクセスできることを表しています。
 
 ## 10. Gateway と HTTPRoute をデプロイする
 
@@ -655,10 +655,11 @@ Status:
     Status:                False
     Type:                  Scheduled
 Events:
-  Type    Reason  Age                  From                   Message
-  ----    ------  ----                 ----                   -------
-  Normal  SYNC    37s (x29 over 110m)  mc-gateway-controller  SYNC on store/external-http was a success
-  Normal  SYNC    28s                  mc-gateway-controller  store/external-http
+  Type    Reason  Age   From                   Message
+  ----    ------  ----  ----                   -------
+  Normal  ADD     86s   mc-gateway-controller  store/external-http
+  Normal  UPDATE  86s   mc-gateway-controller  store/external-http
+  Normal  SYNC    76s   mc-gateway-controller  store/external-http
 ```
 
 ### Gateway から外部 IP アドレスを取得
