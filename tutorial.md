@@ -13,6 +13,8 @@
 
 Google Kubernetes Engine (GKE) をマルチリージョン、マルチクラスタ構成で構築し、Kubernetes の Gateway API を利用して、Google Cloud Load Balancing (GCLB) でトラフィックを各クラスタに分散させる方法を学びます。
 
+![Multi Cluster Gateway](https://cloud.google.com/kubernetes-engine/images/multi-cluster-service-example2.svg)
+
 ## 1. 環境準備
 
 ### Google Cloud Platform（GCP）プロジェクトの選択
