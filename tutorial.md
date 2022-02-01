@@ -753,7 +753,7 @@ gcloud container hub memberships unregister {{config-cluster-name}} --gke-cluste
 
 東京リージョンクラスタの解除
 ```bash
-gcloud container hub memberships unregister {{cluster-name-1}}--gke-cluster {{zone-1}}/{{cluster-name-1}}
+gcloud container hub memberships unregister {{cluster-name-1}} --gke-cluster {{zone-1}}/{{cluster-name-1}}
 ```
 
 大阪リージョンクラスタの解除
