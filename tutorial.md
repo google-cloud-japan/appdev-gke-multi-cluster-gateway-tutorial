@@ -177,7 +177,9 @@ gcloud container hub multi-cluster-services describe
 
 ## 5. Gateway API CRD をインストールする
 
-GKE でゲートウェイ リソースを使用する前に、クラスタに Gateway API カスタム リソース定義（CRD）をインストールする必要があります。
+GKE でゲートウェイ リソースを使用する前に、クラスタに Gateway API カスタム リソース定義（CRD）をインストールする必要があります。  
+
+まず、 `v1alpha2` で利用する CRD をインストールします。
 
 ```bash
 kubectl apply -k "github.com/kubernetes-sigs/gateway-api/config/crd?ref=v0.4.2" --context {{config-cluster-name}}
@@ -193,6 +195,24 @@ customresourcedefinition.apiextensions.k8s.io/referencepolicies.gateway.networki
 customresourcedefinition.apiextensions.k8s.io/tcproutes.gateway.networking.k8s.io configured
 customresourcedefinition.apiextensions.k8s.io/tlsroutes.gateway.networking.k8s.io configured
 customresourcedefinition.apiextensions.k8s.io/udproutes.gateway.networking.k8s.io configured
+```
+
+次に、 `v1alpha1` の CRD もインストールします（先に `v1alpha2` の CRD をインストールする必要があります）。 
+
+```bash
+kubectl apply -k "github.com/kubernetes-sigs/gateway-api/config/crd?ref=v0.3.0" --context {{config-cluster-name}}
+```
+
+次の CRD がインストールされます。
+
+```text
+customresourcedefinition.apiextensions.k8s.io/backendpolicies.networking.x-k8s.io created
+customresourcedefinition.apiextensions.k8s.io/gatewayclasses.networking.x-k8s.io created
+customresourcedefinition.apiextensions.k8s.io/gateways.networking.x-k8s.io created
+customresourcedefinition.apiextensions.k8s.io/httproutes.networking.x-k8s.io created
+customresourcedefinition.apiextensions.k8s.io/tcproutes.networking.x-k8s.io created
+customresourcedefinition.apiextensions.k8s.io/tlsroutes.networking.x-k8s.io created
+customresourcedefinition.apiextensions.k8s.io/udproutes.networking.x-k8s.io created
 ```
 
 次のステップでコントローラを有効にすると、クラスタにマルチクラスタ GatewayClass がインストールされ、マルチクラスタ ゲートウェイのデプロイが可能になります。
