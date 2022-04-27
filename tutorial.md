@@ -180,7 +180,7 @@ gcloud container hub multi-cluster-services describe
 GKE でゲートウェイ リソースを使用する前に、クラスタに Gateway API カスタム リソース定義（CRD）をインストールする必要があります。
 
 ```bash
-kubectl apply -k "github.com/kubernetes-sigs/gateway-api/config/crd?ref=v0.4.2"
+kubectl apply -k "github.com/kubernetes-sigs/gateway-api/config/crd?ref=v0.4.2" --context {{config-cluster-name}}
 ```
 
 次の CRD がインストールされます。
@@ -266,10 +266,10 @@ gke-l7-rilb-mc   networking.gke.io/gateway
 両方のクラスタに、store Deployment と Namespace を作成します。
 
 ```bash
-kubectl apply --context {{cluster-name-1}} -f https://raw.githubusercontent.com/GoogleCloudPlatform/gke-networking-recipes/master/gateway/gke-gateway-controller/multi-cluster-gateway/store.yaml
+kubectl apply --context {{cluster-name-1}} -f https://raw.githubusercontent.com/GoogleCloudPlatform/gke-networking-recipes/main/gateway/gke-gateway-controller/multi-cluster-gateway/store.yaml
 ```
 ```bash
-kubectl apply --context {{cluster-name-2}} -f https://raw.githubusercontent.com/GoogleCloudPlatform/gke-networking-recipes/master/gateway/gke-gateway-controller/multi-cluster-gateway/store.yaml
+kubectl apply --context {{cluster-name-2}} -f https://raw.githubusercontent.com/GoogleCloudPlatform/gke-networking-recipes/main/gateway/gke-gateway-controller/multi-cluster-gateway/store.yaml
 ```
 
 RUNNING 状態になったかどうかを確認します。
