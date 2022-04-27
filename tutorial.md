@@ -329,7 +329,7 @@ ServiceImport を参照することで、1 つ以上のクラスタで実行さ�
 
 ```yaml
 kind: HTTPRoute
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 metadata:
   name: store-route
   namespace: store
@@ -337,14 +337,11 @@ metadata:
     gateway: multi-cluster-gateway
 spec:
   hostnames:
-  - "store.example.com"
+    - "store.example.com"
   rules:
-  - forwardTo:
-    - backendRef:
-        group: net.gke.io
-        kind: ServiceImport
-        name: store
-      port: 8080
+    - backendRefs:
+        - name: store
+          port: 8080
 ```
 
 ロードバランサは、バックエンドを 1 つのバックエンド プールとして扱います。  
@@ -535,20 +532,19 @@ store-tokyo-1   ClusterSetIP   ["10.72.28.68"]    4h32m
 ```text
 cat <<EOL > external-http-gateway.yaml
 kind: Gateway
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 metadata:
   name: external-http
   namespace: store
 spec:
   gatewayClassName: gke-l7-gxlb-mc
   listeners:
-  - protocol: HTTP
+  - name: http
+    protocol: HTTP
     port: 80
-    routes:
-      kind: HTTPRoute
-      selector:
-        matchLabels:
-          gateway: external-http
+    allowedRoutes:
+      kinds:
+      - kind: HTTPRoute
 EOL
 ```
 
@@ -565,7 +561,7 @@ kubectl apply -f external-http-gateway.yaml --context {{config-cluster-name}} --
 ```text
 cat <<EOL > public-store-route.yaml
 kind: HTTPRoute
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 metadata:
   name: public-store-route
   namespace: store
@@ -574,32 +570,31 @@ metadata:
 spec:
   hostnames:
   - "store.example.com"
+  parentRefs:
+  - name: external-http
   rules:
-  - forwardTo:
-    - backendRef:
-        group: net.gke.io
-        kind: ServiceImport
-        name: store
-      port: 8080
   - matches:
     - path:
-        type: Prefix
+        type: PathPrefix
         value: /tokyo
-    forwardTo:
-    - backendRef:
-        group: net.gke.io
-        kind: ServiceImport
-        name: store-tokyo-1
+    backendRefs:
+    - group: net.gke.io
+      kind: ServiceImport
+      name: store-tokyo-1
       port: 8080
   - matches:
     - path:
-        type: Prefix
+        type: PathPrefix
         value: /osaka
-    forwardTo:
-    - backendRef:
-        group: net.gke.io
+    backendRefs:
+      - group: net.gke.io
         kind: ServiceImport
         name: store-osaka-1
+        port: 8080
+  - backendRefs:
+    - group: net.gke.io
+      kind: ServiceImport
+      name: store
       port: 8080
 EOL
 ```
