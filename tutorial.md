@@ -58,12 +58,11 @@ gcloud container clusters create {{config-cluster-name}} \
     --enable-ip-alias \
     --workload-pool={{project-id}}.svc.id.goog \
     --release-channel stable \
-    --machine-type {{instance-type}}
+    --machine-type {{instance-type}} \
+    --async
 ```
 
 ### 東京リージョンのクラスターを作成する
-
-(時間短縮のため、Cloud Shell の別タブで並行して実行した方が良いです)
 
 ```bash
 gcloud container clusters create {{cluster-name-1}} \
@@ -71,12 +70,11 @@ gcloud container clusters create {{cluster-name-1}} \
     --enable-ip-alias \
     --workload-pool={{project-id}}.svc.id.goog \
     --release-channel stable \
-    --machine-type {{instance-type}}
+    --machine-type {{instance-type}} \
+    --async
 ```
 
 ### 大阪リージョンのクラスターを作成する
-
-(時間短縮のため、Cloud Shell の別タブで並行して実行した方が良いです)
 
 ```bash
 gcloud container clusters create {{cluster-name-2}} \
@@ -84,8 +82,11 @@ gcloud container clusters create {{cluster-name-2}} \
     --enable-ip-alias \
     --workload-pool={{project-id}}.svc.id.goog \
     --release-channel stable \
-    --machine-type {{instance-type}}
+    --machine-type {{instance-type}} \
+    --async
 ```
+
+全クラスタが作成されるまで待ちます
 
 ### GKE クラスターにアクセスするための認証情報を取得する
 
@@ -179,19 +180,19 @@ gcloud container hub multi-cluster-services describe
 GKE でゲートウェイ リソースを使用する前に、クラスタに Gateway API カスタム リソース定義（CRD）をインストールする必要があります。
 
 ```bash
-kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd?ref=v0.3.0" | kubectl apply --context {{config-cluster-name}} -f -
+kubectl apply -k "github.com/kubernetes-sigs/gateway-api/config/crd?ref=v0.4.2"
 ```
 
 次の CRD がインストールされます。
 
 ```text
-customresourcedefinition.apiextensions.k8s.io/backendpolicies.networking.x-k8s.io created
-customresourcedefinition.apiextensions.k8s.io/gatewayclasses.networking.x-k8s.io created
-customresourcedefinition.apiextensions.k8s.io/gateways.networking.x-k8s.io created
-customresourcedefinition.apiextensions.k8s.io/httproutes.networking.x-k8s.io created
-customresourcedefinition.apiextensions.k8s.io/tcproutes.networking.x-k8s.io created
-customresourcedefinition.apiextensions.k8s.io/tlsroutes.networking.x-k8s.io created
-customresourcedefinition.apiextensions.k8s.io/udproutes.networking.x-k8s.io created
+customresourcedefinition.apiextensions.k8s.io/gatewayclasses.gateway.networking.k8s.io configured
+customresourcedefinition.apiextensions.k8s.io/gateways.gateway.networking.k8s.io configured
+customresourcedefinition.apiextensions.k8s.io/httproutes.gateway.networking.k8s.io configured
+customresourcedefinition.apiextensions.k8s.io/referencepolicies.gateway.networking.k8s.io configured
+customresourcedefinition.apiextensions.k8s.io/tcproutes.gateway.networking.k8s.io configured
+customresourcedefinition.apiextensions.k8s.io/tlsroutes.gateway.networking.k8s.io configured
+customresourcedefinition.apiextensions.k8s.io/udproutes.gateway.networking.k8s.io configured
 ```
 
 次のステップでコントローラを有効にすると、クラスタにマルチクラスタ GatewayClass がインストールされ、マルチクラスタ ゲートウェイのデプロイが可能になります。
@@ -742,8 +743,6 @@ curl -H "host: store.example.com" http://${VIP}/osaka
 
 ### GKE Hub から登録解除する
 
-(時間がかかるため、複数タブで並列実行しても良いです)
-
 構成クラスタの解除
 ```bash
 gcloud container hub memberships unregister {{config-cluster-name}} --gke-cluster {{zone-1}}/{{config-cluster-name}}
@@ -761,19 +760,17 @@ gcloud container hub memberships unregister {{cluster-name-2}} --gke-cluster {{z
 
 ### クラスタの削除
 
-(時間がかかるため、複数タブで並列実行しても良いです)
-
 構成クラスタの削除
 ```bash
-gcloud container clusters delete {{config-cluster-name}} --zone {{zone-1}}
+gcloud container clusters delete {{config-cluster-name}} --zone {{zone-1}} --async
 ```
 
 東京リージョンクラスタの削除
 ```bash
-gcloud container clusters delete {{cluster-name-1}} --zone {{zone-1}}
+gcloud container clusters delete {{cluster-name-1}} --zone {{zone-1}} --async
 ```
 
 大阪リージョンクラスタの削除
 ```bash
-gcloud container clusters delete {{cluster-name-2}} --zone {{zone-2}}
+gcloud container clusters delete {{cluster-name-2}} --zone {{zone-2}} --async
 ```
