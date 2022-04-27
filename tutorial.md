@@ -58,12 +58,11 @@ gcloud container clusters create {{config-cluster-name}} \
     --enable-ip-alias \
     --workload-pool={{project-id}}.svc.id.goog \
     --release-channel stable \
-    --machine-type {{instance-type}}
+    --machine-type {{instance-type}} \
+    --async
 ```
 
 ### 東京リージョンのクラスターを作成する
-
-(時間短縮のため、Cloud Shell の別タブで並行して実行した方が良いです)
 
 ```bash
 gcloud container clusters create {{cluster-name-1}} \
@@ -71,12 +70,11 @@ gcloud container clusters create {{cluster-name-1}} \
     --enable-ip-alias \
     --workload-pool={{project-id}}.svc.id.goog \
     --release-channel stable \
-    --machine-type {{instance-type}}
+    --machine-type {{instance-type}} \
+    --async
 ```
 
 ### 大阪リージョンのクラスターを作成する
-
-(時間短縮のため、Cloud Shell の別タブで並行して実行した方が良いです)
 
 ```bash
 gcloud container clusters create {{cluster-name-2}} \
@@ -84,8 +82,11 @@ gcloud container clusters create {{cluster-name-2}} \
     --enable-ip-alias \
     --workload-pool={{project-id}}.svc.id.goog \
     --release-channel stable \
-    --machine-type {{instance-type}}
+    --machine-type {{instance-type}} \
+    --async
 ```
+
+全クラスタが作成されるまで待ちます
 
 ### GKE クラスターにアクセスするための認証情報を取得する
 
@@ -176,10 +177,30 @@ gcloud container hub multi-cluster-services describe
 
 ## 5. Gateway API CRD をインストールする
 
-GKE でゲートウェイ リソースを使用する前に、クラスタに Gateway API カスタム リソース定義（CRD）をインストールする必要があります。
+GKE でゲートウェイ リソースを使用する前に、クラスタに Gateway API カスタム リソース定義（CRD）をインストールする必要があります。  
+
+まず、 `v1alpha2` で利用する CRD をインストールします。
 
 ```bash
-kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd?ref=v0.3.0" | kubectl apply --context {{config-cluster-name}} -f -
+kubectl apply -k "github.com/kubernetes-sigs/gateway-api/config/crd?ref=v0.4.2" --context {{config-cluster-name}}
+```
+
+次の CRD がインストールされます。
+
+```text
+customresourcedefinition.apiextensions.k8s.io/gatewayclasses.gateway.networking.k8s.io configured
+customresourcedefinition.apiextensions.k8s.io/gateways.gateway.networking.k8s.io configured
+customresourcedefinition.apiextensions.k8s.io/httproutes.gateway.networking.k8s.io configured
+customresourcedefinition.apiextensions.k8s.io/referencepolicies.gateway.networking.k8s.io configured
+customresourcedefinition.apiextensions.k8s.io/tcproutes.gateway.networking.k8s.io configured
+customresourcedefinition.apiextensions.k8s.io/tlsroutes.gateway.networking.k8s.io configured
+customresourcedefinition.apiextensions.k8s.io/udproutes.gateway.networking.k8s.io configured
+```
+
+次に、 `v1alpha1` の CRD もインストールします（先に `v1alpha2` の CRD をインストールする必要があります）。 
+
+```bash
+kubectl apply -k "github.com/kubernetes-sigs/gateway-api/config/crd?ref=v0.3.0" --context {{config-cluster-name}}
 ```
 
 次の CRD がインストールされます。
@@ -265,10 +286,10 @@ gke-l7-rilb-mc   networking.gke.io/gateway
 両方のクラスタに、store Deployment と Namespace を作成します。
 
 ```bash
-kubectl apply --context {{cluster-name-1}} -f https://raw.githubusercontent.com/GoogleCloudPlatform/gke-networking-recipes/master/gateway/gke-gateway-controller/multi-cluster-gateway/store.yaml
+kubectl apply --context {{cluster-name-1}} -f https://raw.githubusercontent.com/GoogleCloudPlatform/gke-networking-recipes/main/gateway/gke-gateway-controller/multi-cluster-gateway/store.yaml
 ```
 ```bash
-kubectl apply --context {{cluster-name-2}} -f https://raw.githubusercontent.com/GoogleCloudPlatform/gke-networking-recipes/master/gateway/gke-gateway-controller/multi-cluster-gateway/store.yaml
+kubectl apply --context {{cluster-name-2}} -f https://raw.githubusercontent.com/GoogleCloudPlatform/gke-networking-recipes/main/gateway/gke-gateway-controller/multi-cluster-gateway/store.yaml
 ```
 
 RUNNING 状態になったかどうかを確認します。
@@ -329,7 +350,7 @@ ServiceImport を参照することで、1 つ以上のクラスタで実行さ�
 
 ```yaml
 kind: HTTPRoute
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 metadata:
   name: store-route
   namespace: store
@@ -337,14 +358,11 @@ metadata:
     gateway: multi-cluster-gateway
 spec:
   hostnames:
-  - "store.example.com"
+    - "store.example.com"
   rules:
-  - forwardTo:
-    - backendRef:
-        group: net.gke.io
-        kind: ServiceImport
-        name: store
-      port: 8080
+    - backendRefs:
+        - name: store
+          port: 8080
 ```
 
 ロードバランサは、バックエンドを 1 つのバックエンド プールとして扱います。  
@@ -535,20 +553,19 @@ store-tokyo-1   ClusterSetIP   ["10.72.28.68"]    4h32m
 ```text
 cat <<EOL > external-http-gateway.yaml
 kind: Gateway
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 metadata:
   name: external-http
   namespace: store
 spec:
   gatewayClassName: gke-l7-gxlb-mc
   listeners:
-  - protocol: HTTP
+  - name: http
+    protocol: HTTP
     port: 80
-    routes:
-      kind: HTTPRoute
-      selector:
-        matchLabels:
-          gateway: external-http
+    allowedRoutes:
+      kinds:
+      - kind: HTTPRoute
 EOL
 ```
 
@@ -565,7 +582,7 @@ kubectl apply -f external-http-gateway.yaml --context {{config-cluster-name}} --
 ```text
 cat <<EOL > public-store-route.yaml
 kind: HTTPRoute
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 metadata:
   name: public-store-route
   namespace: store
@@ -574,32 +591,31 @@ metadata:
 spec:
   hostnames:
   - "store.example.com"
+  parentRefs:
+  - name: external-http
   rules:
-  - forwardTo:
-    - backendRef:
-        group: net.gke.io
-        kind: ServiceImport
-        name: store
-      port: 8080
   - matches:
     - path:
-        type: Prefix
+        type: PathPrefix
         value: /tokyo
-    forwardTo:
-    - backendRef:
-        group: net.gke.io
-        kind: ServiceImport
-        name: store-tokyo-1
+    backendRefs:
+    - group: net.gke.io
+      kind: ServiceImport
+      name: store-tokyo-1
       port: 8080
   - matches:
     - path:
-        type: Prefix
+        type: PathPrefix
         value: /osaka
-    forwardTo:
-    - backendRef:
-        group: net.gke.io
+    backendRefs:
+      - group: net.gke.io
         kind: ServiceImport
         name: store-osaka-1
+        port: 8080
+  - backendRefs:
+    - group: net.gke.io
+      kind: ServiceImport
+      name: store
       port: 8080
 EOL
 ```
@@ -747,8 +763,6 @@ curl -H "host: store.example.com" http://${VIP}/osaka
 
 ### GKE Hub から登録解除する
 
-(時間がかかるため、複数タブで並列実行しても良いです)
-
 構成クラスタの解除
 ```bash
 gcloud container hub memberships unregister {{config-cluster-name}} --gke-cluster {{zone-1}}/{{config-cluster-name}}
@@ -766,19 +780,17 @@ gcloud container hub memberships unregister {{cluster-name-2}} --gke-cluster {{z
 
 ### クラスタの削除
 
-(時間がかかるため、複数タブで並列実行しても良いです)
-
 構成クラスタの削除
 ```bash
-gcloud container clusters delete {{config-cluster-name}} --zone {{zone-1}}
+gcloud container clusters delete {{config-cluster-name}} --zone {{zone-1}} --async
 ```
 
 東京リージョンクラスタの削除
 ```bash
-gcloud container clusters delete {{cluster-name-1}} --zone {{zone-1}}
+gcloud container clusters delete {{cluster-name-1}} --zone {{zone-1}} --async
 ```
 
 大阪リージョンクラスタの削除
 ```bash
-gcloud container clusters delete {{cluster-name-2}} --zone {{zone-2}}
+gcloud container clusters delete {{cluster-name-2}} --zone {{zone-2}} --async
 ```
